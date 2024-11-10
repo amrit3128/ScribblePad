@@ -13,6 +13,48 @@ const repeat = (times, fn) => {
     }
 }
 
+const random = (min, max) => Math.floor(Math.random() * (max - min)) + min;
+
+
+function selectExample(eg) {
+    const examples = {
+        'low': `
+        _.color('black');
+const t = _.turtle();
+fori(0, 32, 1, i => {
+    repeat(i, () => {
+        t.forward(i);
+        t.right(358 / i);
+    });
+    t.backward(Math.sqrt(i));
+});
+        `,
+        'rotcircle': `
+const t = _.turtle();
+// repeat 400 [repeat 34 [fd 12 rt 10] rt 90]
+repeat(400, () => {
+    repeat(34, () => {
+        t.forward(12);
+        t.right(10);
+    });
+    t.right(90);
+})
+        `,
+        'siggen': `
+        
+        _.clear();
+        const A = _.slider("Amplitude", 0, 100, 50);
+        const F = _.slider("Frequency", 0, 100, 10);
+
+        for (let i = 0; i < 100; i += 0.01) {
+            _.fill(_.circle(100 + i * 10, 100 + A * _.sin(i * F), 1));
+        }
+        `,
+    }
+
+    $('#editor').textContent = examples[eg];
+}
+
 class Turtle {
     constructor(x, y) {
         this.x = x;
@@ -55,42 +97,174 @@ class Turtle {
     // }
 }
 
-function highlightSyntax() {
-    // Save the current cursor position
-    const selection = window.getSelection();
-    if (selection.rangeCount === 0) return;
 
-    const range = selection.getRangeAt(0);
-    const startOffset = range.startOffset;
-    const endOffset = range.endOffset;
 
-    // Restore the cursor position
-    const newRange = document.createRange();
-    newRange.setStart($('#editor').childNodes[0], startOffset);
-    newRange.setEnd($('#editor').childNodes[0], endOffset);
-    selection.removeAllRanges();
-    selection.addRange(newRange);
+function makeDraggable(element) {
+    // Make an element draggable (or if it has a .window-top class, drag based on the .window-top element)
+    let currentPosX = 0, currentPosY = 0, previousPosX = 0, previousPosY = 0;
+
+    // If there is a window-top classed element, attach to that element instead of full window
+    if (element.querySelector('.window-top')) {
+        // If present, the window-top element is where you move the parent element from
+        element.querySelector('.window-top').onmousedown = dragMouseDown;
+    }
+    else {
+        // Otherwise, move the element itself
+        element.onmousedown = dragMouseDown;
+    }
+
+    function dragMouseDown(e) {
+        // Prevent any default action on this element (you can remove if you need this element to perform its default action)
+        e.preventDefault();
+        // Get the mouse cursor position and set the initial previous positions to begin
+        previousPosX = e.clientX;
+        previousPosY = e.clientY;
+        // When the mouse is let go, call the closing event
+        document.onmouseup = closeDragElement;
+        // call a function whenever the cursor moves
+        document.onmousemove = elementDrag;
+    }
+
+    function elementDrag(e) {
+        // Prevent any default action on this element (you can remove if you need this element to perform its default action)
+        e.preventDefault();
+        // Calculate the new cursor position by using the previous x and y positions of the mouse
+        currentPosX = previousPosX - e.clientX;
+        currentPosY = previousPosY - e.clientY;
+        // Replace the previous positions with the new x and y positions of the mouse
+        previousPosX = e.clientX;
+        previousPosY = e.clientY;
+        // Set the element's new position
+        element.style.top = (element.offsetTop - currentPosY) + 'px';
+        element.style.left = (element.offsetLeft - currentPosX) + 'px';
+    }
+
+    function closeDragElement() {
+        // Stop moving when mouse button is released and release events
+        document.onmouseup = null;
+        document.onmousemove = null;
+    }
 }
 
 window.appendToEditor = (text) => {
     $('#editor').textContent += '\n' + text + '\n';
 }
+let isLive = false
 
-document.addEventListener('DOMContentLoaded', () => {
+let sliders = {
+
+}
+
+function debounce(func, wait, immediate) {
+	var timeout;
+	return function() {
+		var context = this, args = arguments;
+		var later = function() {
+			timeout = null;
+			if (!immediate) func.apply(context, args);
+		};
+		var callNow = immediate && !timeout;
+		clearTimeout(timeout);
+		timeout = setTimeout(later, wait);
+		if (callNow) func.apply(context, args);
+	};
+};
+
+let createdSliders = [ ]
+function createSlider(name, min = 0, max = 100, value = 0, step = 5) {
+    if (!sliders[name]) {
+        createdSliders.push(name)
+        sliders[name] = document.createElement('input');
+        sliders[name].type = 'range';
+        sliders[name].min = min;
+        sliders[name].max = max;
+        sliders[name].value = value;
+        sliders[name].step = step;
+        sliders[name].id = name;
+        sliders[name].addEventListener('input', debounce(() => {
+            console.log(`Got modified`)
+            // $(`#${name}value`).textContent = sliders[name].value
+            onCodeEdit()
+        }, 100))
+    }
+    return sliders[name].value
+}
+
+function resetSliders() {
+    $('#sliders').innerHTML = ''
+    const unusedSliders = Object.keys(sliders).filter(slider => !createdSliders.includes(slider))
+    for (const slider of unusedSliders) {
+        delete sliders[slider]
+    }
+    createdSliders = []
+}
+
+function updateSliders() {
+    $('#sliders').innerHTML = ''
+
+    if (Object.keys(sliders).length === 0) {
+        $('#sliders-parent').style.display = 'none'
+    } else {
+        $('#sliders-parent').style.display = 'block'
+    }
+
+    for (const [key, slider] of Object.entries(sliders)) {
+        const lbl = document.createElement('label')
+        lbl.textContent = key
+        $('#sliders').appendChild(lbl)
+        $('#sliders').appendChild(slider)
+    }
+}
+
+const onCodeEdit = debounce(() =>{
+    if (isLive) {
+        resetSliders()
+        runCode($('#editor').textContent)
+        updateSliders()
+    }
+}, 250)
+
+
+
+function runCode(code) {
+    $('#errormessage').textContent = ``
+    try {
+        const exe = new Function(`function f() { ${code} }; f();`)
+        exe()
+    } catch (err) {
+        $('#errormessage').textContent = `⚠ ${err.message}`
+    }
+}
+
+function main() {
+    makeDraggable($('#sliders-parent'))
+
     /** @type {HTMLCanvasElement} */
     const canvas = $('canvas');
 
     const parent = canvas.parentElement;
-    canvas.width = parent?.clientWidth ?? canvas.width;
-    canvas.height = parent?.clientHeight ?? canvas.height;
+    canvas.width = parent?.clientWidth - 8 ?? canvas.width;
+    canvas.height = parent?.clientHeight - 8 ?? canvas.height;
 
     const toolCanvas = $('#tools')
-    toolCanvas.width = parent?.clientWidth ?? toolCanvas.width;
-    toolCanvas.height = parent?.clientHeight ?? toolCanvas.height;
+    toolCanvas.width = parent?.clientWidth - 8 ?? toolCanvas.width;
+    toolCanvas.height = parent?.clientHeight - 8 ?? toolCanvas.height;
 
     const ctx = canvas.getContext('2d');
 
     if (!ctx) throw new Error('Canvas not supported');
+
+
+    $('#toggleLive').addEventListener('click', () => {
+        isLive = !isLive
+        $('#toggleLive').dataset.toggled = isLive ? "true" : "false"
+    })
+
+    $('#examples-btn').addEventListener('click', () => {
+        $('#examples').classList.toggle('hidden')
+        $('#drawingCanvas').classList.toggle('hidden')
+        $('#tools').classList.toggle('hidden')
+    })
 
     const addedFns = {
         width: canvas.width,
@@ -104,28 +278,33 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.fillStyle = fillC ?? ctx.fillStyle;
             ctx.strokeStyle = strokeC ?? ctx.strokeStyle;
         },
+        sin: (deg) => Math.sin(deg * Math.PI / 180),
+        cos: (deg) => Math.cos(deg * Math.PI / 180),
+        tan: (deg) => Math.tan(deg * Math.PI / 180),
         turtle: (x, y) => {
             x = x ?? _.width / 2;
             y = y ?? _.height / 2;
 
             return new Turtle(x, y);
-        }
+        },
+        clear: () => {
+            ctx.clearRect(0, 0, _.width, _.height);
+        },
+        slider: createSlider
     };
     Object.assign(ctx, addedFns);
     _ = ctx;
 
     $('#run').addEventListener('click', () => {
-        const code = $('#editor').textContent;
-        const exe = new Function(code)
-        exe()
+        resetSliders()
+        runCode($('#editor').textContent)
+        updateSliders()
     })
 
     $('#runcmd').addEventListener('keydown', (event) => {
         if (event.key === 'Enter') {
             event.preventDefault()
-            const code = $('#runcmd').textContent;
-            const exe = new Function(code)
-            exe()
+            runCode($('#runcmd').textContent)
         }
     })
 
@@ -142,6 +321,7 @@ fori(20, _.height, 40, j => {
 */
 
 // Turtle
+/*
 _.color('black');
 const t = _.turtle();
 fori(0, 32, 1, i => {
@@ -151,7 +331,17 @@ fori(0, 32, 1, i => {
     });
     t.backward(Math.sqrt(i));
 });
+*/
 
+const t = _.turtle();
+// repeat 400 [repeat 34 [fd 12 rt 10] rt 90]
+repeat(400, () => {
+    repeat(34, () => {
+        t.forward(12);
+        t.right(10);
+    });
+    t.right(90);
+})
 
     `
 
@@ -161,5 +351,7 @@ fori(0, 32, 1, i => {
         const y = event.clientY - rect.top;
         $('#coords').textContent = `X: ${x.toFixed(0)}, Y: ${y.toFixed(0)}`;
     });
-});
+};
+
+main();
 

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="p-0 m-0">
 
 <head>
     <meta charset="UTF-8">
@@ -8,41 +8,66 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 
-<body class="w-[100vw] h-[100vh] font-ui flex flex-col overflow-hidden">
-    <nav class=" px-10 flex justify-between border-b-black border-b-[1px]">
+<body class="h-full w-full p-0 m-0 font-ui overflow-hidden">
+    <div id='sliders-parent' style="display: none;" class="z-10 absolute flex flex-col border-black bg-white border">
+        <div class="window-top px-4 border-b-[1px] border-black cursor-move w-full">Sliders</div>
+        <div id="sliders" class="p-4 flex flex-col"></div>
+    </div>
+    <nav class=" px-10 grid grid-cols-3 border-b-black border-b-[1px]">
         <div class="flex gap-4">
             <span>⁘</span>
             <button class="inline-block cursor-pointer">File</button>
             <button class="inline-block cursor-pointer">Project</button>
             <button class="inline-block cursor-pointer">View</button>
-            <button class="inline-block cursor-pointer">Examples</button>
+            <button id="examples-btn" class="inline-block cursor-pointer">Examples</button>
         </div>
-        <div>
+        <div class="ml-auto mr-auto">
+            <button id='run' class="px-[1em] py-[1px] bg-blue-500 text-white">⯈</button>
+            <button data-toggled="false" id="toggleLive"
+                class="px-[1em] py-[1px] data-[toggled=true]:bg-yellow-500 data-[toggled=true]:text-white text-yellow-500">▲</button>
             <!-- <span id="status">⬤ Ready</span> -->
         </div>
-        <div>
+        <div class="ml-auto">
             <span id="coords"></span>
             <span id="circle-coords"></span>
         </div>
     </nav>
-    <div class="flex flex-1">
-        <section class="flex-[0.35] bg-gray-100 border-r-[1px] relative border-r-black">
-            <pre class="w-full h-full p-2 language-js">
-                <code contenteditable="" oninput="highlightSyntax()" spellcheck="false" id="editor"></code>
-            </pre>
-            <div class="absolute bottom-4 right-4">
-                <button id='run' class="px-2 py-1 bg-blue-500 text-white">⯈</button>
-            </div>
+    <div class="flex max-h-[96vh]">
+        <section class="flex w-[35%] bg-gray-100 border-r-[1px] relative border-r-black">
+            <div class="w-full h-full p-2 whitespace-pre overflow-y-scroll" contenteditable="" spellcheck="false"
+                id="editor" oninput="onCodeEdit()"></div>
+                <!-- <div class="h-full w-[1em] break-all" id="errorLine"></div> -->
         </section>
-        <section class="flex-1 flex flex-col">
-            <div class="flex-1 relative">
-                <canvas></canvas>
-                <canvas class="absolute top-0 left-0" id="tools">
-                </canvas>
+        <section class="w-full h-[95vh] relative">
+            <canvas id="drawingCanvas"></canvas>
+            <canvas class="absolute top-0 left-0" id="tools">
+            </canvas>
+            <div id="examples" class="bg-white w-full h-full py-10 hidden" style="z-index: 1">
+                <h2 class="text-2xl font-bold text-center mb-4">Examples</h2>
+                <div class="grid grid-cols-3 grid-rows-2 ml-4 mr-4 gap-4">
+                    <div class="border border-black" onclick="selectExample('low')">
+                        <img  src="https://deepakjois.github.io/hs-logo/examples/svgs/low.svg" alt="" class="border-b-[1px] border-black">
+                        <h4 class="ml-4">Low</h4>
+                    </div>
+
+                    <div class="border border-black" onclick="selectExample('rotcircle')">
+                        <img  src="https://deepakjois.github.io/hs-logo/examples/svgs/rotating_circle.svg" alt="" class="border-b-[1px] border-black">
+                        <h4 class="ml-4">Rotating Circle</h4>
+                    </div>
+
+                    <div class="border border-black" onclick="selectExample('siggen')">
+                        <img  src="https://0x0.st/XDkc.png" alt="" class="border-b-[1px] border-black">
+                        <h4 class="ml-4">Signal Generator</h4>
+                    </div>
+                </div>
             </div>
-            <div class="w-full flex gap-1 border-t-[1px] border-t-black px-4">
-                <span class="block">&gt;</span>
-                <span contenteditable="" id="runcmd" class="block w-full"></span>
+            <div class="absolute top-0 left-0 w-full">
+                <div class="bg-white w-full  flex gap-1 border-b-[1px] border-b-black px-4 ">
+                    <span class="block">&gt;</span>
+                    <span contenteditable="" id="runcmd" class="block w-full"></span>
+                </div>
+                <div class="px-4 text-red-400 [&:not(:empty)]:bg-white" id="errormessage">
+                </div>
             </div>
         </section>
     </div>
